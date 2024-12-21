@@ -8,6 +8,7 @@ jobs:
   build-extension:
     runs-on: ubuntu-24.04
     env:
+      EXTENSION_NAME: "extension_name"  # TODO: Change
       VERSION: ""
       SHORT_COMMIT: ""
 
@@ -26,16 +27,16 @@ jobs:
       - name: Bump version in manifest.json
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          jq --arg version "${{ env.VERSION }}" '.version=$version' extension_name/manifest.json > extension_name/manifest_with_version.json.tmp
-          mv extension_name/manifest_with_version.json.tmp extension_name/manifest.json
+          jq --arg version "${{ env.VERSION }}" '.version=$version' ${{ env.EXTENSION_NAME }}/manifest.json > ${{ env.EXTENSION_NAME }}/manifest_with_version.json.tmp
+          mv ${{ env.EXTENSION_NAME }}/manifest_with_version.json.tmp ${{ env.EXTENSION_NAME }}/manifest.json
       
       - name: Build extension
         run: |
           mkdir output
-          google-chrome-stable --pack-extension=extension_name
-          zip -r extension_name.zip extension_name/
-          cp extension_name.crx output/extension_name-${{ env.SHORT_COMMIT }}.crx
-          cp extension_name.zip output/extension_name-${{ env.SHORT_COMMIT }}.zip
+          google-chrome-stable --pack-extension=${{ env.EXTENSION_NAME }}
+          zip -r ${{ env.EXTENSION_NAME }}.zip ${{ env.EXTENSION_NAME }}/
+          cp ${{ env.EXTENSION_NAME }}.crx output/${{ env.EXTENSION_NAME }}-${{ env.SHORT_COMMIT }}.crx
+          cp ${{ env.EXTENSION_NAME }}.zip output/${{ env.EXTENSION_NAME }}-${{ env.SHORT_COMMIT }}.zip
       
       - name: Upload crx artifact
         uses: actions/upload-artifact@v4
@@ -47,8 +48,8 @@ jobs:
       - name: Rename extension with version
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          mv extension_name.crx extension_name-v${{ env.VERSION }}.crx
-          mv extension_name.zip extension_name-v${{ env.VERSION }}.zip
+          mv ${{ env.EXTENSION_NAME }}.crx ${{ env.EXTENSION_NAME }}-v${{ env.VERSION }}.crx
+          mv ${{ env.EXTENSION_NAME }}.zip ${{ env.EXTENSION_NAME }}-v${{ env.VERSION }}.zip
 
       - name: Create Release
         id: create_release
@@ -57,7 +58,7 @@ jobs:
         with:
           tag_name: ${{ env.VERSION }}
           files: |
-            extension_name-v${{ env.VERSION }}.crx
-            extension_name-v${{ env.VERSION }}.zip
+            ${{ env.EXTENSION_NAME }}-v${{ env.VERSION }}.crx
+            ${{ env.EXTENSION_NAME }}-v${{ env.VERSION }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

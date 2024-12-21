@@ -1,0 +1,63 @@
+name: Build chrome extension
+on: push
+
+permissions:
+  contents: write
+
+jobs:
+  build-extension:
+    runs-on: ubuntu-24.04
+    env:
+      VERSION: ""
+      SHORT_COMMIT: ""
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Extract commit metadata
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          echo "SHORT_COMMIT=$(echo ${GITHUB_SHA} | cut -c1-6)" >> $GITHUB_ENV
+      
+      - name: Set up google-chrome
+        run: sudo apt-get -y install google-chrome-stable
+      
+      - name: Bump version in manifest.json
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          jq --arg version "${{ env.VERSION }}" '.version=$version' extension_name/manifest.json > extension_name/manifest_with_version.json.tmp
+          mv extension_name/manifest_with_version.json.tmp extension_name/manifest.json
+      
+      - name: Build extension
+        run: |
+          mkdir output
+          google-chrome-stable --pack-extension=extension_name
+          zip -r extension_name.zip extension_name/
+          cp extension_name.crx output/extension_name-${{ env.SHORT_COMMIT }}.crx
+          cp extension_name.zip output/extension_name-${{ env.SHORT_COMMIT }}.zip
+      
+      - name: Upload crx artifact
+        uses: actions/upload-artifact@v4
+        with:
+            name: build-artifacts-${{ env.SHORT_COMMIT }}
+            path: output/
+            retention-days: 7
+
+      - name: Rename extension with version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          mv extension_name.crx extension_name-v${{ env.VERSION }}.crx
+          mv extension_name.zip extension_name-v${{ env.VERSION }}.zip
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ env.VERSION }}
+          files: |
+            extension_name-v${{ env.VERSION }}.crx
+            extension_name-v${{ env.VERSION }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
